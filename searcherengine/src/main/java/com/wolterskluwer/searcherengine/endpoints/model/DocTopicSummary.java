@@ -8,8 +8,9 @@ public class DocTopicSummary {
     private Set<String> ids;
     private int count;
 
-    public DocTopicSummary(Set<String> ids) {
+    public DocTopicSummary(Set<String> ids, int count) {
         this.ids = ids;
+        this.count = count;
     }
 
     public Set<String> getIds() {

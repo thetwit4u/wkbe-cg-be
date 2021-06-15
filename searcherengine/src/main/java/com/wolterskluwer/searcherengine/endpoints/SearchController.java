@@ -54,7 +54,6 @@ public class SearchController {
             for (int i = 0; i < ids.size(); ++i) {
                 Set<Set<String>> combinations = Sets.combinations(ImmutableSet.copyOf(ids), i + 1);
                 for(Set<String> combination : combinations) {
-                    DocTopicSummary summary = new DocTopicSummary(combination);
                     final SolrQuery query = new SolrQuery("*:*");
                     query.setRows(0);
                     query.setFacet(true);
@@ -64,9 +63,8 @@ public class SearchController {
                     final QueryResponse response = client.query("doctopics", query);
                     Map<String, Integer> resultFromQuery = response.getFacetQuery();
                     for(Map.Entry<String, Integer> entry : resultFromQuery.entrySet()){
-                        summary.setCount(entry.getValue());
+                        result.add(new DocTopicSummary(combination,entry.getValue()));
                     }
-                    result.add(summary);
                 }
             }
             return result;
