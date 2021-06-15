@@ -10,7 +10,6 @@ import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.client.solrj.response.QueryResponse;
-import org.apache.solr.common.params.MapSolrParams;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -24,16 +23,37 @@ import java.util.stream.Collectors;
 @RestController
 public class SearchController {
 
-    @GetMapping("/topics")
-    public List<Topic> topics(@RequestParam(name="topic") String label, @RequestParam(name="limit" , defaultValue = "10") int limit) {
+    @GetMapping(value = "/topics", params={"topic"})
+    public List<Topic> topicsByLabel(@RequestParam(name="topic") String label, @RequestParam(name="limit" , defaultValue = "10") int limit) {
         SolrClient client;
         final String solrUrl = "http://localhost:8983/solr";
         client = new HttpSolrClient.Builder(solrUrl)
                 .withConnectionTimeout(10000)
                 .withSocketTimeout(60000)
                 .build();
-        final SolrQuery query = new SolrQuery("label:" + label);
+        final SolrQuery query = new SolrQuery("label:*" + label + "*");
         query.setRows(limit);
+        query.addField("id");
+        query.addField("label");
+        query.addField("path");
+        query.setSort("path",SolrQuery.ORDER.asc);
+        try {
+            final QueryResponse response = client.query("topics", query);
+            return response.getBeans(Topic.class);
+        }catch (Exception e){
+            throw  new RuntimeException(e);
+        }
+    }
+
+    @GetMapping(value = "/topics", params={"topics"})
+    public List<Topic> topicsById(@RequestParam(name="topics") List<String> ids) {
+        SolrClient client;
+        final String solrUrl = "http://localhost:8983/solr";
+        client = new HttpSolrClient.Builder(solrUrl)
+                .withConnectionTimeout(10000)
+                .withSocketTimeout(60000)
+                .build();
+        final SolrQuery query = new SolrQuery(buildORQuery(ids, "id"));
         query.addField("id");
         query.addField("label");
         query.addField("path");
@@ -106,7 +126,7 @@ public class SearchController {
                 .build();
 
         try {
-            final SolrQuery query = new SolrQuery(buildORQuery(ids));
+            final SolrQuery query = new SolrQuery(buildORQuery(ids, "topics"));
             query.addField("id");
             query.addField("title");
             query.addField("topics");
@@ -138,10 +158,10 @@ public class SearchController {
         }
     }
 
-    private String buildORQuery(List<String> criteria){
+    private String buildORQuery(List<String> criteria, String field){
         if(criteria.isEmpty())
             return StringUtils.EMPTY;
-        StringBuilder query = new StringBuilder("topics:(");
+        StringBuilder query = new StringBuilder(field + ":(");
         Iterator<String> it = criteria.iterator();
         query.append(it.next());
         while(it.hasNext()){
