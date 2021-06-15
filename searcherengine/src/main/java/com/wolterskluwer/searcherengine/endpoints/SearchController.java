@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 
 @RestController
@@ -63,7 +65,7 @@ public class SearchController {
                     query.setRows(0);
                     query.setFacet(true);
                     query.addFacetField("topics");
-                    String facetQuery = buildFacetQuery(combination);
+                    String facetQuery = buildAndQuery(combination);
                     query.addFacetQuery(facetQuery);
                     final QueryResponse response = client.query("doctopics", query);
                     Map<String, Integer> resultFromQuery = response.getFacetQuery();
@@ -80,7 +82,7 @@ public class SearchController {
         }
     }
 
-    private String buildFacetQuery(Set<String> criteria){
+    private String buildAndQuery(Set<String> criteria){
         if(criteria.isEmpty())
             return StringUtils.EMPTY;
         StringBuilder query = new StringBuilder("topics:(");
@@ -148,4 +150,39 @@ public class SearchController {
         query.append(")");
         return query.toString();
     }
+
+
+    @GetMapping("/docs/suggest")
+    public Long suggestTopicsFor(@RequestParam(name="topics") Set<String> ids) {
+        SolrClient client;
+        final String solrUrl = "http://localhost:8983/solr";
+        client = new HttpSolrClient.Builder(solrUrl)
+                .withConnectionTimeout(10000)
+                .withSocketTimeout(60000)
+                .build();
+
+        try {
+            final SolrQuery query = new SolrQuery(buildAndQuery(ids));
+            query.addField("id");
+            query.addField("title");
+            query.addField("topics");
+            final QueryResponse response = client.query("doctopics", query);
+            List<DocTopic> topics = response.getBeans(DocTopic.class);
+            List<Long> topicIds = topics.stream().flatMap(topic -> topic.getTopics().stream())
+                    .filter(id -> !ids.contains(String.valueOf(id)))
+                    .collect(Collectors.toList());
+            Optional<Map.Entry<Long,Long>> topic = topicIds.stream()
+                    .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()))
+                    .entrySet()
+                    .stream()
+                    .max(Map.Entry.comparingByValue());
+            if (topic.isPresent()){
+                return topic.get().getKey();
+            }
+            return Long.MIN_VALUE;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 }
