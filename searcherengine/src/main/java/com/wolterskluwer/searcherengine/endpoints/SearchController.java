@@ -12,6 +12,7 @@ import org.apache.solr.client.solrj.impl.HttpSolrClient;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.params.MapSolrParams;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -22,18 +23,21 @@ import java.util.*;
 public class SearchController {
 
     @GetMapping("/topics")
-    public List<Topic> topics(@RequestParam(name="topic") String label) {
+    public List<Topic> topics(@RequestParam(name="topic") String label, @RequestParam(name="limit" , defaultValue = "10") int limit) {
         SolrClient client;
         final String solrUrl = "http://localhost:8983/solr";
         client = new HttpSolrClient.Builder(solrUrl)
                 .withConnectionTimeout(10000)
                 .withSocketTimeout(60000)
                 .build();
-        final Map<String, String> queryParamMap = new HashMap<>();
-        queryParamMap.put("q", "label:" + label);
-        MapSolrParams queryParams = new MapSolrParams(queryParamMap);
+        final SolrQuery query = new SolrQuery("label:" + label);
+        query.setRows(limit);
+        query.addField("id");
+        query.addField("label");
+        query.addField("path");
+        query.setSort("path",SolrQuery.ORDER.asc);
         try {
-            final QueryResponse response = client.query("topics", queryParams);
+            final QueryResponse response = client.query("topics", query);
             return response.getBeans(Topic.class);
         }catch (Exception e){
             throw  new RuntimeException(e);
@@ -101,6 +105,27 @@ public class SearchController {
 
         try {
             final SolrQuery query = new SolrQuery(buildORQuery(ids));
+            query.addField("id");
+            query.addField("title");
+            query.addField("topics");
+            final QueryResponse response = client.query("doctopics", query);
+            return response.getBeans(DocTopic.class);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @GetMapping("/docs/{id}")
+    public List<DocTopic> docs(@PathVariable String id) {
+        SolrClient client;
+        final String solrUrl = "http://localhost:8983/solr";
+        client = new HttpSolrClient.Builder(solrUrl)
+                .withConnectionTimeout(10000)
+                .withSocketTimeout(60000)
+                .build();
+
+        try {
+            final SolrQuery query = new SolrQuery("id:" + id);
             query.addField("id");
             query.addField("title");
             query.addField("topics");
