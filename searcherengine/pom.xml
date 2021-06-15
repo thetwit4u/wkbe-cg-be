@@ -11,7 +11,6 @@
 	<groupId>com.wolterskluwer</groupId>
 	<artifactId>searcherengine</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<packaging>war</packaging>
 	<name>searcherengine</name>
 	<description>searcher engine for indexing docs</description>
 	<properties>
